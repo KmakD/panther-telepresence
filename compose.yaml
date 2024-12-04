@@ -1,0 +1,39 @@
+x-common-config:
+  &common-config
+  network_mode: host
+  ipc: host
+  pid: host # ?
+  restart: unless-stopped
+
+x-dds-envs:
+  &dds-envs
+  env_file: .env.dds
+
+services:
+  reverse-proxy:
+    image: caddy:2.6.2-alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+
+  foxglove-ds:
+    image: husarion/foxglove-bridge:humble-0.7.4-20240320
+    <<:
+      - *common-config
+      - *dds-envs
+    command: ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8766 address:=127.0.0.1 capabilities:=[clientPublish,connectionGraph,assets,services]
+
+  teleop_twist_joy:
+    image: husarion/teleop-twist-joy:humble-2.4.5-20240318
+    <<:
+      - *common-config
+      - *dds-envs
+    command: ros2 run teleop_twist_joy teleop_node --ros-args --params-file /teleop_twist_joy_f710_params.yaml
+
+  pth_ouster_tf:
+    image: husarion/ouster:humble-0.10.2-20230831
+    <<:
+      - *common-config
+      - *dds-envs
+    command: ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link os_sensor
